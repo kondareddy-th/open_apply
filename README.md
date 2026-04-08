@@ -1,6 +1,15 @@
-# Nexus — AI Career Automation
+# Open Apply — AI-Powered Job Application Automation
 
-Automate your job search: scrape 7+ job boards, tailor resumes with AI, generate cover letters, prepare applications, and track your pipeline.
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
+[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg)](https://fastapi.tiangolo.com)
+[![Claude](https://img.shields.io/badge/Claude-Anthropic-cc785c.svg)](https://anthropic.com)
+[![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-7c3aed.svg)](https://claude.ai/code)
+
+**Open-source AI job search automation.** Scrape 7+ job boards, tailor resumes with AI, generate cover letters, prepare applications, and track your entire pipeline — all from one tool.
+
+> Stop manually applying to jobs. Let AI do the heavy lifting while you focus on what matters — preparing for interviews and choosing the right role.
 
 ## Quickstart (2 minutes)
 
@@ -156,3 +165,50 @@ Set your API key in Settings or via environment variable. The system auto-detect
 - **Database**: SQLite (dev) / PostgreSQL (prod)
 - **AI**: Anthropic Claude or OpenAI GPT-4
 - **Scraping**: httpx + BeautifulSoup (no browser needed)
+
+## Built With
+
+This entire project was built using [Claude Code](https://claude.ai/code) — Anthropic's agentic coding tool. From architecture to implementation to testing, Claude Code wrote every line. To learn more about what's possible: **https://docs.anthropic.com/en/docs/claude-code/overview**
+
+#AnthropicRocks
+
+## Acknowledgments
+
+Huge thanks to [Santiago Ferreira](https://github.com/santifer) and his project **[career-ops](https://github.com/santifer/career-ops)** which inspired the multi-board scraping architecture. Career-ops showed how to scan Greenhouse, Lever, Ashby, and Workable systematically — we built on that foundation to create a full-stack application with AI-powered resume tailoring and application automation. Great work Santiago.
+
+## Contact
+
+**Konda Reddy** — [LinkedIn](https://www.linkedin.com/in/kondareddy-t/) | [GitHub](https://github.com/kondareddy-th)
+
+Questions, feedback, or want to contribute? Open an issue or reach out on LinkedIn.
+
+---
+
+## Why Open Apply?
+
+Job searching is broken. You spend hours copying your resume into forms, writing cover letters from scratch, and tracking applications in spreadsheets. Open Apply fixes this with AI:
+
+- **AI Resume Tailoring** — Your master resume gets automatically customized for each job's keywords and requirements
+- **AI Cover Letters** — Personalized, specific cover letters generated in seconds — not generic templates
+- **AI Job Matching** — Upload your resume and instantly see which scraped jobs are the best fit
+- **One-Click Application Prep** — Select a job, get a tailored resume + cover letter + match analysis + talking points
+- **Multi-Board Scraping** — Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Jobvite — all from one dashboard
+
+### Who is this for?
+
+- Software engineers tired of manually applying to 50+ jobs
+- Career switchers who need help tailoring their resume for new roles
+- Anyone who wants to apply smarter, not harder
+- Developers who want full control over their job search tools (it's open source!)
+
+### Keywords
+
+`job search automation` `ai resume builder` `ai cover letter generator` `job application tracker` `greenhouse scraper` `lever scraper` `ashby jobs` `workable jobs` `career automation` `resume tailor ai` `job matching ai` `open source job board` `fastapi react` `claude ai` `openai gpt4` `job hunt tool` `ats resume optimizer` `automated job application` `python job scraper` `react job dashboard`
+
+## Star History
+
+If this tool helped you land a job, give it a star and share it with others who are searching.
+
+## License
+
+[MIT](LICENSE) — use it, modify it, ship it.
