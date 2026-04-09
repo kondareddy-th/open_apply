@@ -54,6 +54,68 @@ async def search_jobs_across_boards(
     }
 
 
+class SaveSearchResultsRequest(BaseModel):
+    jobs: list[dict]  # [{title, company, url, source, location, department}]
+
+
+@router.post("/jobs/save-search-results")
+async def save_search_results(
+    data: SaveSearchResultsRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Save search results as new jobs in the database."""
+    import hashlib
+    added = 0
+    skipped = 0
+
+    for item in data.jobs:
+        title = item.get("title", "").strip()
+        company_name = item.get("company", "").strip()
+        url = item.get("url", "").strip()
+        source = item.get("source", "custom")
+        if not title:
+            continue
+
+        # Generate external_id from URL or title+company
+        ext_id = hashlib.sha256((url or f"{title}@{company_name}").encode()).hexdigest()[:16]
+
+        # Check duplicate
+        existing = (await db.execute(
+            select(Job).where(Job.source == source, Job.external_id == ext_id)
+        )).scalar_one_or_none()
+        if existing:
+            skipped += 1
+            continue
+
+        # Find or create company
+        company = (await db.execute(
+            select(Company).where(func.lower(Company.name) == company_name.lower())
+        )).scalar_one_or_none()
+
+        if not company:
+            company = Company(id=uuid.uuid4(), name=company_name, is_active=True)
+            db.add(company)
+            await db.flush()
+
+        from datetime import datetime
+        job = Job(
+            id=uuid.uuid4(),
+            company_id=company.id,
+            external_id=ext_id,
+            source=source,
+            title=title,
+            location=item.get("location"),
+            department=item.get("department"),
+            url=url or None,
+            scraped_at=datetime.utcnow(),
+        )
+        db.add(job)
+        added += 1
+
+    await db.commit()
+    return {"added": added, "skipped": skipped}
+
+
 @router.get("/jobs/board-status")
 async def board_status(db: AsyncSession = Depends(get_db)):
     """Return which ATS boards are configured and ready to scrape."""
@@ -286,6 +348,34 @@ async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
     await db.execute(delete(Job).where(Job.id == jid))
     await db.commit()
     return {"deleted": 1}
+
+
+@router.post("/jobs/cleanup-source")
+async def cleanup_by_source(
+    source: str = Query(..., description="Source to delete: linkedin, etc."),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete all jobs from a specific source. Used to clean up old data."""
+    # First delete related data
+    job_ids = (await db.execute(
+        select(Job.id).where(Job.source == source)
+    )).scalars().all()
+
+    if not job_ids:
+        return {"deleted": 0, "source": source}
+
+    # Delete email events via emails
+    email_ids = (await db.execute(
+        select(Email.id).where(Email.job_id.in_(job_ids))
+    )).scalars().all()
+    if email_ids:
+        await db.execute(delete(EmailEvent).where(EmailEvent.email_id.in_(email_ids)))
+
+    await db.execute(delete(Email).where(Email.job_id.in_(job_ids)))
+    await db.execute(delete(Contact).where(Contact.job_id.in_(job_ids)))
+    await db.execute(delete(Job).where(Job.source == source))
+    await db.commit()
+    return {"deleted": len(job_ids), "source": source}
 
 
 @router.post("/jobs/delete-bulk")

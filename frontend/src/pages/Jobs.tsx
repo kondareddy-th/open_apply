@@ -103,6 +103,8 @@ export default function Jobs() {
   const [searchingBoards, setSearchingBoards] = useState(false)
   const [searchResults, setSearchResults] = useState<Array<{ title: string; company: string; url: string; source: string; location?: string; department?: string }>>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
+  const [selectedSearchResults, setSelectedSearchResults] = useState<Set<number>>(new Set())
+  const [savingSearchResults, setSavingSearchResults] = useState(false)
 
   // Sort
   const [sortBy, setSortBy] = useState<'scraped_at' | 'posted_at' | 'match_score'>('scraped_at')
@@ -225,6 +227,32 @@ export default function Jobs() {
       toast(e?.message || 'Search failed')
     }
     setSearchingBoards(false)
+  }
+
+  const handleSaveSearchResults = async () => {
+    const toSave = [...selectedSearchResults].map(i => searchResults[i]).filter(Boolean)
+    if (toSave.length === 0) return
+    setSavingSearchResults(true)
+    try {
+      const result = await apiFetch<{ added: number; skipped: number }>('/jobs/save-search-results', {
+        method: 'POST',
+        body: JSON.stringify({ jobs: toSave }),
+      })
+      toast(`Added ${result.added} jobs${result.skipped ? `, ${result.skipped} already existed` : ''}`)
+      setSelectedSearchResults(new Set())
+      await fetchJobs()
+    } catch (e: any) {
+      toast(e?.message || 'Failed to save')
+    }
+    setSavingSearchResults(false)
+  }
+
+  const handleSelectAllSearch = () => {
+    if (selectedSearchResults.size === searchResults.length) {
+      setSelectedSearchResults(new Set())
+    } else {
+      setSelectedSearchResults(new Set(searchResults.map((_, i) => i)))
+    }
   }
 
   const handleScoreAll = async () => {
@@ -402,26 +430,51 @@ export default function Jobs() {
         <p className="text-[10px] text-text-tertiary">Searches Greenhouse, Lever, Ashby APIs directly. Enter a company name, role keywords, or both.</p>
 
         {showSearchResults && searchResults.length > 0 && (
-          <div className="mt-3 space-y-1.5 max-h-80 overflow-y-auto border-t border-[rgba(255,255,255,0.06)] pt-3">
-            <p className="text-caption text-text-tertiary mb-1">{searchResults.length} results</p>
-            {searchResults.map((r, i) => (
-              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/[0.02] border border-[rgba(255,255,255,0.03)]">
-                <Badge variant={r.source}>{SOURCE_LABELS[r.source] || r.source}</Badge>
-                <div className="flex-1 min-w-0">
-                  <p className="text-body text-text-primary truncate">{r.title}</p>
-                  <div className="flex items-center gap-2 text-caption text-text-tertiary">
-                    <span>{r.company}</span>
-                    {r.location && <span>{r.location}</span>}
-                    {r.department && <span className="text-[10px]">{r.department}</span>}
+          <div className="mt-3 border-t border-[rgba(255,255,255,0.06)] pt-3">
+            {/* Action bar */}
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <button onClick={handleSelectAllSearch} className="text-caption text-accent hover:underline">
+                {selectedSearchResults.size === searchResults.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <span className="text-caption text-text-tertiary">{searchResults.length} results{selectedSearchResults.size > 0 ? `, ${selectedSearchResults.size} selected` : ''}</span>
+              {selectedSearchResults.size > 0 && (
+                <Button variant="primary" size="sm" icon={savingSearchResults ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} loading={savingSearchResults} onClick={handleSaveSearchResults}>
+                  Add {selectedSearchResults.size} to Jobs
+                </Button>
+              )}
+            </div>
+
+            {/* Results list */}
+            <div className="space-y-1 max-h-80 overflow-y-auto">
+              {searchResults.map((r, i) => {
+                const isChecked = selectedSearchResults.has(i)
+                return (
+                  <div key={i}
+                    onClick={() => setSelectedSearchResults(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })}
+                    className={clsx('flex items-center gap-3 p-2.5 rounded-lg cursor-pointer border transition-colors',
+                      isChecked ? 'border-accent/30 bg-accent/5' : 'border-[rgba(255,255,255,0.03)] hover:bg-white/[0.02]'
+                    )}
+                  >
+                    <div className="flex-shrink-0">
+                      {isChecked ? <CheckSquare className="w-4 h-4 text-accent" /> : <Square className="w-4 h-4 text-text-tertiary" />}
+                    </div>
+                    <Badge variant={r.source}>{SOURCE_LABELS[r.source] || r.source}</Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-body text-text-primary truncate">{r.title}</p>
+                      <div className="flex items-center gap-2 text-caption text-text-tertiary">
+                        <span>{r.company}</span>
+                        {r.location && <span>{r.location}</span>}
+                      </div>
+                    </div>
+                    {r.url && (
+                      <a href={r.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-text-tertiary hover:text-accent flex-shrink-0">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
                   </div>
-                </div>
-                {r.url && (
-                  <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-text-tertiary hover:text-accent flex-shrink-0">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
-              </div>
-            ))}
+                )
+              })}
+            </div>
           </div>
         )}
       </div>
