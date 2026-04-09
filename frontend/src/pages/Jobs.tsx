@@ -96,10 +96,12 @@ export default function Jobs() {
   const [showScrapeModal, setShowScrapeModal] = useState(false)
   const [scoring, setScoring] = useState(false)
 
-  // Keyword search across boards
+  // Board search
   const [searchKeywords, setSearchKeywords] = useState('')
+  const [searchCompany, setSearchCompany] = useState('')
+  const [searchMaxResults, setSearchMaxResults] = useState(50)
   const [searchingBoards, setSearchingBoards] = useState(false)
-  const [searchResults, setSearchResults] = useState<Array<{ title: string; company: string; url: string; source: string; snippet: string }>>([])
+  const [searchResults, setSearchResults] = useState<Array<{ title: string; company: string; url: string; source: string; location?: string; department?: string }>>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
 
   // Sort
@@ -205,16 +207,20 @@ export default function Jobs() {
   }
 
   const handleKeywordSearch = async () => {
-    if (!searchKeywords.trim()) return
+    if (!searchKeywords.trim() && !searchCompany.trim()) return
     setSearchingBoards(true)
     setShowSearchResults(true)
     try {
-      const result = await apiFetch<{ results: typeof searchResults }>('/jobs/search', {
+      const result = await apiFetch<{ results: typeof searchResults; count: number }>('/jobs/search', {
         method: 'POST',
-        body: JSON.stringify({ keywords: searchKeywords }),
+        body: JSON.stringify({
+          keywords: searchKeywords.trim(),
+          company: searchCompany.trim() || null,
+          max_results: searchMaxResults,
+        }),
       })
       setSearchResults(result.results || [])
-      if (!result.results?.length) toast('No results found')
+      toast(result.count > 0 ? `Found ${result.count} jobs` : 'No matching jobs found')
     } catch (e: any) {
       toast(e?.message || 'Search failed')
     }
@@ -363,32 +369,51 @@ export default function Jobs() {
         </div>
       </div>
 
-      {/* Keyword Search */}
+      {/* Board Search */}
       <div className="bg-surface-2 rounded-lg p-4 border border-[rgba(255,255,255,0.06)] mb-4">
         <p className="text-label text-text-primary mb-2">Search Job Boards</p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-2">
+          <input
+            type="text"
+            value={searchCompany}
+            onChange={e => setSearchCompany(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleKeywordSearch()}
+            placeholder="Company (e.g., Anthropic, Stripe)"
+            className="flex-[2] min-w-0 px-3 py-2 bg-surface-3 border border-[rgba(255,255,255,0.06)] rounded-lg text-body text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
+          />
           <input
             type="text"
             value={searchKeywords}
             onChange={e => setSearchKeywords(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleKeywordSearch()}
-            placeholder="Search keywords (e.g., AI Engineer, Product Manager, Remote)"
-            className="flex-1 min-w-0 px-3 py-2 bg-surface-3 border border-[rgba(255,255,255,0.06)] rounded-lg text-body text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
+            placeholder="Role keywords (e.g., AI Engineer)"
+            className="flex-[3] min-w-0 px-3 py-2 bg-surface-3 border border-[rgba(255,255,255,0.06)] rounded-lg text-body text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
           />
-          <Button variant="accent" icon={searchingBoards ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} loading={searchingBoards} onClick={handleKeywordSearch} disabled={!searchKeywords.trim()}>
+          <select value={searchMaxResults} onChange={e => setSearchMaxResults(Number(e.target.value))}
+            className="px-3 py-2 bg-surface-3 border border-[rgba(255,255,255,0.06)] rounded-lg text-body text-text-primary focus:outline-none">
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <Button variant="accent" icon={searchingBoards ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} loading={searchingBoards} onClick={handleKeywordSearch} disabled={!searchKeywords.trim() && !searchCompany.trim()}>
             Search
           </Button>
         </div>
-        <p className="text-[10px] text-text-tertiary mt-1.5">Searches Greenhouse, Lever, Ashby, Workable via web — no company setup needed</p>
+        <p className="text-[10px] text-text-tertiary">Searches Greenhouse, Lever, Ashby APIs directly. Enter a company name, role keywords, or both.</p>
 
         {showSearchResults && searchResults.length > 0 && (
-          <div className="mt-3 space-y-1.5 max-h-64 overflow-y-auto border-t border-[rgba(255,255,255,0.06)] pt-3">
+          <div className="mt-3 space-y-1.5 max-h-80 overflow-y-auto border-t border-[rgba(255,255,255,0.06)] pt-3">
+            <p className="text-caption text-text-tertiary mb-1">{searchResults.length} results</p>
             {searchResults.map((r, i) => (
-              <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.02]">
+              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/[0.02] border border-[rgba(255,255,255,0.03)]">
                 <Badge variant={r.source}>{SOURCE_LABELS[r.source] || r.source}</Badge>
                 <div className="flex-1 min-w-0">
                   <p className="text-body text-text-primary truncate">{r.title}</p>
-                  <p className="text-caption text-text-tertiary">{r.company}</p>
+                  <div className="flex items-center gap-2 text-caption text-text-tertiary">
+                    <span>{r.company}</span>
+                    {r.location && <span>{r.location}</span>}
+                    {r.department && <span className="text-[10px]">{r.department}</span>}
+                  </div>
                 </div>
                 {r.url && (
                   <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-text-tertiary hover:text-accent flex-shrink-0">

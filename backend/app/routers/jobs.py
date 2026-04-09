@@ -19,27 +19,39 @@ class BulkDeleteRequest(BaseModel):
     job_ids: list[str]
 
 
+class JobSearchRequest(BaseModel):
+    keywords: str = ""
+    company: str | None = None
+    boards: list[str] | None = None
+    max_results: int = 50
+
+
 @router.post("/jobs/search")
 async def search_jobs_across_boards(
-    request_body: dict = None,
+    data: JobSearchRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Search for jobs across all ATS boards by keyword.
+    """Search for jobs across ATS boards by keyword and/or company.
 
-    No pre-configured companies needed — uses web search to find matching postings.
+    Searches Greenhouse, Lever, Ashby APIs directly — fast and reliable.
     """
     from app.services.job_search import search_jobs_by_keyword
-    from fastapi import Request
 
-    body = request_body or {}
-    keywords = body.get("keywords", "")
-    boards = body.get("boards")  # optional: ["greenhouse", "lever", "ashby"]
+    if not data.keywords and not data.company:
+        return {"error": "Provide keywords or a company name", "results": []}
 
-    if not keywords:
-        return {"error": "Keywords required", "results": []}
-
-    results = await search_jobs_by_keyword(keywords, boards=boards)
-    return {"keywords": keywords, "results": results, "count": len(results)}
+    results = await search_jobs_by_keyword(
+        keywords=data.keywords,
+        company=data.company,
+        boards=data.boards,
+        max_results=min(data.max_results, 200),
+    )
+    return {
+        "keywords": data.keywords,
+        "company": data.company,
+        "results": results,
+        "count": len(results),
+    }
 
 
 @router.get("/jobs/board-status")
