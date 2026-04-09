@@ -322,6 +322,66 @@ Return ONLY valid JSON."""
     return {"generated": saved, "questions": result.get("questions", [])}
 
 
+class GenerateFormAnswersRequest(BaseModel):
+    questions: list[str]
+
+
+@router.post("/applications/{app_id}/form-answers")
+async def generate_form_answers(
+    app_id: str,
+    data: GenerateFormAnswersRequest,
+    api_key: str = Depends(get_api_key),
+    model: str = Depends(get_claude_model),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate answers for job application form questions using AI + resume + profile."""
+    draft = (await db.execute(
+        select(ApplicationDraft).where(ApplicationDraft.id == parse_uuid(app_id))
+    )).scalar_one()
+
+    job = (await db.execute(select(Job).where(Job.id == draft.job_id))).scalar_one()
+    company = (await db.execute(select(Company).where(Company.id == job.company_id))).scalar_one()
+
+    resume_text = ""
+    if draft.resume_id:
+        r = (await db.execute(select(Resume).where(Resume.id == draft.resume_id))).scalar_one_or_none()
+        if r:
+            resume_text = r.content
+
+    from app.models.db import UserProfile
+    profile = (await db.execute(select(UserProfile).limit(1))).scalar_one_or_none()
+    profile_info = ""
+    if profile:
+        parts = [f"Name: {profile.full_name}"]
+        if profile.email:
+            parts.append(f"Email: {profile.email}")
+        if profile.location:
+            parts.append(f"Location: {profile.location}")
+        if profile.work_authorization:
+            parts.append(f"Work Auth: {profile.work_authorization}")
+        if profile.willing_to_relocate:
+            parts.append("Willing to relocate: Yes")
+        profile_info = "\n".join(parts)
+
+    from app.services.claude import _call_claude, parse_json_safe
+
+    system = """You are filling out a job application. Generate concise, honest answers.
+- Be specific, never generic
+- For "Why [Company]?" — reference specifics that align with the candidate
+- Keep answers 1-3 sentences unless more is needed
+- NEVER fabricate experience
+
+Return JSON: {"answers": [{"question": "...", "answer": "..."}]}
+Return ONLY valid JSON."""
+
+    questions_text = "\n".join(f"Q{i+1}: {q}" for i, q in enumerate(data.questions))
+    prompt = f"Job: {job.title} at {company.name}\n\nResume:\n{resume_text[:2000]}\n\nProfile:\n{profile_info}\n\nQuestions:\n{questions_text}"
+
+    raw = await _call_claude(system, prompt, api_key, max_tokens=4096, model=model)
+    result = parse_json_safe(raw, {"answers": []})
+    return result
+
+
 class EditCoverLetterRequest(BaseModel):
     instruction: str
 
